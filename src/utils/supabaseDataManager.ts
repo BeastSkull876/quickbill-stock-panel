@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface StockItem {
@@ -5,6 +6,7 @@ export interface StockItem {
   name: string;
   price: number;
   quantity: number;
+  user_id: string;
   created_at: string;
 }
 
@@ -24,14 +26,23 @@ export interface Invoice {
   subtotal: number;
   discount: number;
   total: number;
+  user_id: string;
   created_at: string;
 }
 
 // Stock Items Functions
 export const getStockItems = async (): Promise<StockItem[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('No authenticated user found');
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('stock_items')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
   
   if (error) {
@@ -42,10 +53,17 @@ export const getStockItems = async (): Promise<StockItem[]> => {
   return data || [];
 };
 
-export const saveStockItem = async (item: Omit<StockItem, 'id' | 'created_at'>): Promise<StockItem | null> => {
+export const saveStockItem = async (item: Omit<StockItem, 'id' | 'created_at' | 'user_id'>): Promise<StockItem | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('No authenticated user found');
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('stock_items')
-    .insert([item])
+    .insert([{ ...item, user_id: user.id }])
     .select()
     .single();
   
@@ -57,11 +75,19 @@ export const saveStockItem = async (item: Omit<StockItem, 'id' | 'created_at'>):
   return data;
 };
 
-export const updateStockItem = async (id: string, updates: Partial<StockItem>): Promise<StockItem | null> => {
+export const updateStockItem = async (id: string, updates: Partial<Omit<StockItem, 'id' | 'created_at' | 'user_id'>>): Promise<StockItem | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('No authenticated user found');
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('stock_items')
     .update(updates)
     .eq('id', id)
+    .eq('user_id', user.id)
     .select()
     .single();
   
@@ -74,10 +100,18 @@ export const updateStockItem = async (id: string, updates: Partial<StockItem>): 
 };
 
 export const deleteStockItem = async (id: string): Promise<boolean> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('No authenticated user found');
+    return false;
+  }
+
   const { error } = await supabase
     .from('stock_items')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', user.id);
   
   if (error) {
     console.error('Error deleting stock item:', error);
@@ -89,9 +123,17 @@ export const deleteStockItem = async (id: string): Promise<boolean> => {
 
 // Invoice Functions
 export const getInvoices = async (): Promise<Invoice[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('No authenticated user found');
+    return [];
+  }
+
   const { data: invoicesData, error: invoicesError } = await supabase
     .from('invoices')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
   
   if (invoicesError) {
@@ -133,7 +175,14 @@ export const getInvoices = async (): Promise<Invoice[]> => {
   return invoicesWithItems;
 };
 
-export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at'>): Promise<Invoice | null> => {
+export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at' | 'user_id'>): Promise<Invoice | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('No authenticated user found');
+    return null;
+  }
+
   // First, insert the invoice
   const { data: invoiceData, error: invoiceError } = await supabase
     .from('invoices')
@@ -143,6 +192,7 @@ export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at'>): 
       subtotal: invoice.subtotal,
       discount: invoice.discount,
       total: invoice.total,
+      user_id: user.id,
     }])
     .select()
     .single();
@@ -182,11 +232,19 @@ export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at'>): 
 };
 
 export const deleteInvoice = async (id: string): Promise<boolean> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('No authenticated user found');
+    return false;
+  }
+
   // Delete invoice (items will be deleted automatically due to CASCADE)
   const { error } = await supabase
     .from('invoices')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', user.id);
   
   if (error) {
     console.error('Error deleting invoice:', error);
