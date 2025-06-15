@@ -148,6 +148,10 @@ const Auth = () => {
             </Button>
           </form>
           
+          <div className="mt-4 text-center text-xs text-gray-500">
+            You agree with Aarav's Terms and Conditions by using the billing panel
+          </div>
+          
           <div className="mt-4 text-center">
             <button
               type="button"
