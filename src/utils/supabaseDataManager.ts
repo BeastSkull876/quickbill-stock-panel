@@ -208,7 +208,7 @@ export const getInvoices = async (): Promise<Invoice[]> => {
   return invoicesWithItems;
 };
 
-export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at' | 'user_id'>): Promise<Invoice | null> => {
+export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at' | 'user_id'>, stockItemsMap?: Map<string, StockItem>): Promise<Invoice | null> => {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
@@ -216,7 +216,26 @@ export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at' | '
     return null;
   }
 
-  // First, insert the invoice
+  // First, check stock availability and prepare stock updates
+  const stockUpdates = new Map<string, number>();
+  
+  for (const item of invoice.items) {
+    // Find the stock item by name (since invoice items store names, not IDs)
+    const stockItem = stockItemsMap ? 
+      Array.from(stockItemsMap.values()).find(stock => stock.name === item.name) :
+      null;
+    
+    if (stockItem) {
+      const newQuantity = stockItem.quantity - item.quantity;
+      if (newQuantity < 0) {
+        console.error(`Insufficient stock for ${item.name}. Available: ${stockItem.quantity}, Required: ${item.quantity}`);
+        throw new Error(`Insufficient stock for ${item.name}. Available: ${stockItem.quantity}, Required: ${item.quantity}`);
+      }
+      stockUpdates.set(stockItem.id, newQuantity);
+    }
+  }
+
+  // Insert the invoice
   const { data: invoiceData, error: invoiceError } = await supabase
     .from('invoices')
     .insert([{
@@ -235,7 +254,7 @@ export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at' | '
     return null;
   }
   
-  // Then, insert the invoice items
+  // Insert the invoice items
   if (invoice.items.length > 0) {
     const itemsToInsert = invoice.items.map(item => ({
       invoice_id: invoiceData.id,
@@ -252,6 +271,22 @@ export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at' | '
     if (itemsError) {
       console.error('Error saving invoice items:', itemsError);
       // Consider rolling back the invoice if items fail to save
+      throw new Error('Failed to save invoice items');
+    }
+  }
+
+  // Update stock quantities
+  for (const [stockItemId, newQuantity] of stockUpdates) {
+    console.log(`Updating stock item ${stockItemId} quantity to ${newQuantity}`);
+    const { error: stockError } = await supabase
+      .from('stock_items')
+      .update({ quantity: newQuantity })
+      .eq('id', stockItemId)
+      .eq('user_id', user.id);
+    
+    if (stockError) {
+      console.error('Error updating stock quantity:', stockError);
+      // Log error but don't fail the invoice creation
     }
   }
   

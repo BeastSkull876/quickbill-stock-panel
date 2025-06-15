@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +95,16 @@ const CreateInvoice = () => {
       return;
     }
 
+    // Check if there's enough stock
+    if (quantity > stockItem.quantity) {
+      toast({
+        title: "Error",
+        description: `Not enough stock available. Only ${stockItem.quantity} units remaining.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newItem: InvoiceItem = {
       id: generateId(),
       name: stockItem.name,
@@ -136,6 +147,11 @@ const CreateInvoice = () => {
     }
 
     try {
+      // Create a map of stock items for the saveInvoice function
+      const stockItemsMap = new Map(stockItems.map(item => [item.id, item]));
+      
+      console.log('Creating invoice with stock items map:', stockItemsMap);
+      
       const newInvoice = await saveInvoice({
         customer_name: customerName,
         customer_number: customerNumber,
@@ -143,15 +159,20 @@ const CreateInvoice = () => {
         subtotal,
         discount: parseFloat(discount || "0"),
         total,
-      });
+      }, stockItemsMap);
 
       if (newInvoice) {
         console.log('Created invoice:', newInvoice);
         console.log('Will use company profile for PDF:', companyProfile);
         setLastCreatedInvoice(newInvoice);
+        
+        // Refresh stock items to get updated quantities
+        const updatedStockItems = await getStockItems();
+        setStockItems(updatedStockItems);
+        
         toast({
           title: "Success",
-          description: "Invoice created successfully",
+          description: "Invoice created successfully and stock updated",
         });
 
         // Reset form
@@ -162,9 +183,10 @@ const CreateInvoice = () => {
         setDiscount("0");
       }
     } catch (error) {
+      console.error('Error creating invoice:', error);
       toast({
         title: "Error",
-        description: "Failed to create invoice",
+        description: error instanceof Error ? error.message : "Failed to create invoice",
         variant: "destructive",
       });
     }
