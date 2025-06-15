@@ -6,8 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useToast } from "@/hooks/use-toast";
-import { getStockItems, saveInvoice, formatCurrency, StockItem, InvoiceItem } from "@/utils/supabaseDataManager";
-import { FileText, Plus, Trash2, Calculator } from "lucide-react";
+import { 
+  getStockItems, 
+  saveInvoice, 
+  formatCurrency, 
+  getUserBranding,
+  getCompanyProfile,
+  StockItem, 
+  InvoiceItem,
+  UserBranding,
+  CompanyProfile
+} from "@/utils/supabaseDataManager";
+import { generateInvoicePDF } from "@/components/InvoicePDFGenerator";
+import { FileText, Plus, Trash2, Calculator, Download } from "lucide-react";
 
 const CreateInvoice = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -20,21 +31,30 @@ const CreateInvoice = () => {
   });
   const [discount, setDiscount] = useState("0");
   const [loading, setLoading] = useState(true);
+  const [branding, setBranding] = useState<UserBranding | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [lastCreatedInvoice, setLastCreatedInvoice] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchStockItems();
+    fetchData();
   }, []);
 
-  const fetchStockItems = async () => {
+  const fetchData = async () => {
     try {
-      const items = await getStockItems();
+      const [items, brandingData, profileData] = await Promise.all([
+        getStockItems(),
+        getUserBranding(),
+        getCompanyProfile()
+      ]);
       setStockItems(items);
+      setBranding(brandingData);
+      setCompanyProfile(profileData);
     } catch (error) {
-      console.error('Error fetching stock items:', error);
+      console.error('Error fetching data:', error);
       toast({
         title: "Error",
-        description: "Failed to load stock items",
+        description: "Failed to load data",
         variant: "destructive",
       });
     } finally {
@@ -121,6 +141,7 @@ const CreateInvoice = () => {
       });
 
       if (newInvoice) {
+        setLastCreatedInvoice(newInvoice);
         toast({
           title: "Success",
           description: "Invoice created successfully",
@@ -138,6 +159,16 @@ const CreateInvoice = () => {
         title: "Error",
         description: "Failed to create invoice",
         variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (lastCreatedInvoice) {
+      generateInvoicePDF({
+        invoice: lastCreatedInvoice,
+        branding,
+        companyProfile
       });
     }
   };
@@ -174,10 +205,46 @@ const CreateInvoice = () => {
             <p className="text-sm text-gray-500">Generate a new invoice for your customer</p>
           </div>
         </div>
-        <FileText className="h-8 w-8 text-gray-400" />
+        <div className="flex items-center gap-2">
+          {lastCreatedInvoice && (
+            <Button 
+              onClick={handleDownloadPDF}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+            </Button>
+          )}
+          <FileText className="h-8 w-8 text-gray-400" />
+        </div>
       </div>
 
       <div className="p-6">
+        {branding && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                {branding.logo_url && (
+                  <img 
+                    src={branding.logo_url} 
+                    alt="Company Logo" 
+                    className="h-12 w-auto"
+                  />
+                )}
+                <div>
+                  <h3 className="font-semibold" style={{ color: branding.primary_color }}>
+                    {companyProfile?.company_name || 'Your Company'}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Template: {branding.template_id} | Font: {branding.font_family}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <Card>
             <CardHeader>

@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import CreateInvoice from "./pages/CreateInvoice";
 import StockManagement from "./pages/StockManagement";
 import InvoiceList from "./pages/InvoiceList";
+import BrandingSettings from "./pages/BrandingSettings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -37,6 +38,7 @@ const App = () => (
                         <Route path="/create-invoice" element={<CreateInvoice />} />
                         <Route path="/stock-management" element={<StockManagement />} />
                         <Route path="/invoices" element={<InvoiceList />} />
+                        <Route path="/branding-settings" element={<BrandingSettings />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </main>
