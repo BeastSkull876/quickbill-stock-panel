@@ -9,6 +9,9 @@ interface PDFGeneratorProps {
 }
 
 export const generateInvoicePDF = async ({ invoice, branding, companyProfile }: PDFGeneratorProps) => {
+  console.log('Generating PDF with company profile:', companyProfile);
+  console.log('Branding data:', branding);
+  
   const pdf = new jsPDF();
   const pageWidth = pdf.internal.pageSize.width;
   const pageHeight = pdf.internal.pageSize.height;
@@ -48,7 +51,9 @@ export const generateInvoicePDF = async ({ invoice, branding, companyProfile }: 
   // Company Name and Invoice Title
   pdf.setFontSize(24);
   pdf.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-  pdf.text(companyProfile?.company_name || 'Your Company', 20, yPos);
+  const companyName = companyProfile?.company_name || 'Your Company';
+  console.log('Using company name:', companyName);
+  pdf.text(companyName, 20, yPos);
   
   pdf.setFontSize(28);
   pdf.text('INVOICE', pageWidth - 20, yPos, { align: 'right' });
@@ -60,26 +65,31 @@ export const generateInvoicePDF = async ({ invoice, branding, companyProfile }: 
   pdf.setTextColor(100, 100, 100);
   
   if (companyProfile?.company_address) {
+    console.log('Adding company address:', companyProfile.company_address);
     pdf.text(companyProfile.company_address, 20, yPos);
     yPos += 5;
   }
   
   if (companyProfile?.company_phone) {
+    console.log('Adding company phone:', companyProfile.company_phone);
     pdf.text(`Phone: ${companyProfile.company_phone}`, 20, yPos);
     yPos += 5;
   }
   
   if (companyProfile?.company_email) {
+    console.log('Adding company email:', companyProfile.company_email);
     pdf.text(`Email: ${companyProfile.company_email}`, 20, yPos);
     yPos += 5;
   }
   
   if (companyProfile?.website) {
+    console.log('Adding website:', companyProfile.website);
     pdf.text(`Website: ${companyProfile.website}`, 20, yPos);
     yPos += 5;
   }
   
   if (companyProfile?.tax_id) {
+    console.log('Adding tax ID:', companyProfile.tax_id);
     pdf.text(`Tax ID: ${companyProfile.tax_id}`, 20, yPos);
     yPos += 5;
   }

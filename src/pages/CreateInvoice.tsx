@@ -42,11 +42,16 @@ const CreateInvoice = () => {
 
   const fetchData = async () => {
     try {
+      console.log('Fetching data for invoice creation...');
       const [items, brandingData, profileData] = await Promise.all([
         getStockItems(),
         getUserBranding(),
         getCompanyProfile()
       ]);
+      console.log('Stock items:', items);
+      console.log('Branding data:', brandingData);
+      console.log('Company profile data:', profileData);
+      
       setStockItems(items);
       setBranding(brandingData);
       setCompanyProfile(profileData);
@@ -141,6 +146,8 @@ const CreateInvoice = () => {
       });
 
       if (newInvoice) {
+        console.log('Created invoice:', newInvoice);
+        console.log('Will use company profile for PDF:', companyProfile);
         setLastCreatedInvoice(newInvoice);
         toast({
           title: "Success",
@@ -165,6 +172,11 @@ const CreateInvoice = () => {
 
   const handleDownloadPDF = () => {
     if (lastCreatedInvoice) {
+      console.log('Downloading PDF with data:', {
+        invoice: lastCreatedInvoice,
+        branding,
+        companyProfile
+      });
       generateInvoicePDF({
         invoice: lastCreatedInvoice,
         branding,
