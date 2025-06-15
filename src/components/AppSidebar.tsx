@@ -18,6 +18,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarTrigger,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +87,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-4">
+        <p className="text-xs text-gray-400 text-center">Made by Aarav</p>
+      </SidebarFooter>
     </Sidebar>
   );
 }
