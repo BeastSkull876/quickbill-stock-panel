@@ -1,37 +1,39 @@
 
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Package, 
+import {
+  Home,
   Receipt,
-  ChevronRight
-} from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+  Package,
+  FileText,
+  Shield,
+  LogOut,
+} from "lucide-react"
+
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarHeader,
-  SidebarTrigger,
-  SidebarFooter,
-} from "@/components/ui/sidebar";
-import { cn } from "@/lib/utils";
+} from "@/components/ui/sidebar"
+import { useAuth } from "@/contexts/AuthContext"
+import { Button } from "@/components/ui/button"
+import { useNavigate } from "react-router-dom"
 
-const menuItems = [
+// Menu items.
+const items = [
   {
     title: "Dashboard",
     url: "/",
-    icon: LayoutDashboard,
+    icon: Home,
   },
   {
     title: "Create Invoice",
     url: "/create-invoice",
-    icon: FileText,
+    icon: Receipt,
   },
   {
     title: "Stock Management",
@@ -41,45 +43,43 @@ const menuItems = [
   {
     title: "Invoice List",
     url: "/invoices",
-    icon: Receipt,
+    icon: FileText,
   },
-];
+]
 
 export function AppSidebar() {
-  const location = useLocation();
+  const { user, logout, isAdmin } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate("/login")
+  }
+
+  const adminItems = isAdmin ? [
+    {
+      title: "Admin Panel",
+      url: "/admin",
+      icon: Shield,
+    },
+  ] : []
+
+  const allItems = [...items, ...adminItems]
 
   return (
-    <Sidebar className="border-r bg-white shadow-sm">
-      <SidebarHeader className="border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Vicky's Cafe</h2>
-          <SidebarTrigger className="lg:hidden">
-            <ChevronRight className="h-4 w-4" />
-          </SidebarTrigger>
-        </div>
-      </SidebarHeader>
+    <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-            Main Menu
-          </SidebarGroupLabel>
+          <SidebarGroupLabel>Vicky's Cafe</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="px-3">
-              {menuItems.map((item) => (
+            <SidebarMenu>
+              {allItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    className={cn(
-                      "w-full justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-blue-50 hover:text-blue-700",
-                      location.pathname === item.url 
-                        ? "bg-blue-100 text-blue-700 shadow-sm" 
-                        : "text-gray-700"
-                    )}
-                  >
-                    <Link to={item.url}>
-                      <item.icon className="h-4 w-4" />
+                  <SidebarMenuButton asChild>
+                    <a href={item.url}>
+                      <item.icon />
                       <span>{item.title}</span>
-                    </Link>
+                    </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -87,9 +87,30 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
-        <p className="text-xs text-gray-400 text-center">Made by Aarav</p>
+      <SidebarFooter>
+        <div className="p-4 border-t">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-600">
+              Logged in as: {user?.email}
+            </div>
+            <div className="text-xs text-gray-500">
+              Role: {user?.role}
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleLogout}
+              className="w-full justify-start"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+          <div className="mt-4 text-xs text-gray-400 text-center">
+            Made by Aarav
+          </div>
+        </div>
       </SidebarFooter>
     </Sidebar>
-  );
+  )
 }
