@@ -108,6 +108,7 @@ const StockManagement = () => {
   const handleEdit = (item: StockItem) => {
     setEditingItem(item);
     setFormData({ name: item.name, price: item.price.toString() });
+    setIsAddDialogOpen(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -129,11 +130,19 @@ const StockManagement = () => {
     }
   };
 
+  const handleAddClick = () => {
+    setEditingItem(null);
+    setFormData({ name: "", price: "" });
+    setIsAddDialogOpen(true);
+  };
+
   const handleDialogClose = () => {
     setIsAddDialogOpen(false);
     setEditingItem(null);
     setFormData({ name: "", price: "" });
   };
+
+  const isDialogOpen = isAddDialogOpen || !!editingItem;
 
   if (loading) {
     return (
@@ -181,52 +190,51 @@ const StockManagement = () => {
               className="pl-10"
             />
           </div>
-          <Dialog open={isAddDialogOpen || !!editingItem} onOpenChange={handleDialogClose}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Stock Item
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingItem ? "Edit Stock Item" : "Add New Stock Item"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Item Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter item name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="price">Price ($)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    placeholder="Enter price"
-                  />
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <Button type="submit" className="flex-1">
-                    {editingItem ? "Update Item" : "Add Item"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={handleDialogClose}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={handleAddClick} className="bg-blue-600 hover:bg-blue-700">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Stock Item
+          </Button>
         </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingItem ? "Edit Stock Item" : "Add New Stock Item"}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Item Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter item name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="price">Price ($)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  placeholder="Enter price"
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button type="submit" className="flex-1">
+                  {editingItem ? "Update Item" : "Add Item"}
+                </Button>
+                <Button type="button" variant="outline" onClick={handleDialogClose}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {filteredItems.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -280,7 +288,7 @@ const StockManagement = () => {
                   : "Add your first stock item to get started"}
               </p>
               {!searchTerm && (
-                <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleAddClick} className="bg-blue-600 hover:bg-blue-700">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Stock Item
                 </Button>
