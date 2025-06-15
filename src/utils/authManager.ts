@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import bcrypt from 'bcryptjs';
 
@@ -6,8 +7,6 @@ export interface User {
   email: string;
   role: 'admin' | 'user';
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface LoginCredentials {
@@ -22,130 +21,77 @@ export interface CreateUserData {
   role: 'admin' | 'user';
 }
 
-// Generate session token
-const generateSessionToken = () => {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
-};
-
-// Hash password
-export const hashPassword = async (password: string): Promise<string> => {
-  const saltRounds = 10;
-  return await bcrypt.hash(password, saltRounds);
-};
-
-// Verify password
-export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
-  return await bcrypt.compare(password, hash);
-};
-
-// Login function
-export const login = async ({ email, password, keepLoggedIn }: LoginCredentials): Promise<{ user: User | null; error: string | null }> => {
+export const login = async ({ email, password, keepLoggedIn }: LoginCredentials) => {
   try {
-    // Get user by email
-    const { data: user, error: userError } = await supabase
+    console.log('Attempting login for:', email);
+    
+    // First, try to get the user from profiles table
+    const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('email', email)
-      .eq('is_active', true)
-      .single();
-
-    if (userError || !user) {
+      .eq('is_active', true);
+    
+    if (profileError) {
+      console.error('Profile fetch error:', profileError);
+      return { user: null, error: 'Database error occurred' };
+    }
+    
+    if (!profiles || profiles.length === 0) {
+      console.log('No user found with email:', email);
       return { user: null, error: 'Invalid email or password' };
     }
-
-    // Verify password
-    const isValidPassword = await verifyPassword(password, user.password_hash);
-    if (!isValidPassword) {
+    
+    const profile = profiles[0];
+    console.log('Found profile:', { id: profile.id, email: profile.email, role: profile.role });
+    
+    // Check password
+    const passwordMatch = await bcrypt.compare(password, profile.password_hash);
+    if (!passwordMatch) {
+      console.log('Password mismatch for user:', email);
       return { user: null, error: 'Invalid email or password' };
     }
-
-    // Create session if keep logged in is selected
+    
+    const user: User = {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      is_active: profile.is_active,
+    };
+    
+    // Handle session persistence
     if (keepLoggedIn) {
       const sessionToken = generateSessionToken();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
-
-      await supabase.from('user_sessions').insert({
-        user_id: user.id,
-        session_token: sessionToken,
-        expires_at: expiresAt.toISOString()
-      });
-
-      localStorage.setItem('session_token', sessionToken);
+      
+      const { error: sessionError } = await supabase
+        .from('user_sessions')
+        .insert({
+          user_id: user.id,
+          session_token: sessionToken,
+          expires_at: expiresAt.toISOString(),
+        });
+      
+      if (!sessionError) {
+        localStorage.setItem('session_token', sessionToken);
+      }
     }
-
-    // Store user in localStorage
-    const userWithoutPassword = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      is_active: user.is_active,
-      created_at: user.created_at,
-      updated_at: user.updated_at
-    };
-
-    localStorage.setItem('current_user', JSON.stringify(userWithoutPassword));
     
-    return { user: userWithoutPassword, error: null };
+    // Store user in localStorage
+    localStorage.setItem('current_user', JSON.stringify(user));
+    
+    console.log('Login successful for user:', user.email);
+    return { user, error: null };
   } catch (error) {
     console.error('Login error:', error);
-    return { user: null, error: 'Login failed. Please try again.' };
+    return { user: null, error: 'An unexpected error occurred' };
   }
 };
 
-// Check session validity
-export const checkSession = async (): Promise<User | null> => {
+export const logout = async () => {
   try {
     const sessionToken = localStorage.getItem('session_token');
-    const currentUserStr = localStorage.getItem('current_user');
-
-    if (!sessionToken && !currentUserStr) {
-      return null;
-    }
-
-    // If we have a session token, verify it
-    if (sessionToken) {
-      const { data: session, error } = await supabase
-        .from('user_sessions')
-        .select('*, profiles(*)')
-        .eq('session_token', sessionToken)
-        .gt('expires_at', new Date().toISOString())
-        .single();
-
-      if (error || !session) {
-        // Session expired or invalid, clear storage
-        localStorage.removeItem('session_token');
-        localStorage.removeItem('current_user');
-        return null;
-      }
-
-      return {
-        id: session.profiles.id,
-        email: session.profiles.email,
-        role: session.profiles.role,
-        is_active: session.profiles.is_active,
-        created_at: session.profiles.created_at,
-        updated_at: session.profiles.updated_at
-      };
-    }
-
-    // If no session token but have user data (temporary login)
-    if (currentUserStr) {
-      return JSON.parse(currentUserStr);
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Session check error:', error);
-    return null;
-  }
-};
-
-// Logout function
-export const logout = async (): Promise<void> => {
-  try {
-    const sessionToken = localStorage.getItem('session_token');
-    
     if (sessionToken) {
       // Remove session from database
       await supabase
@@ -153,117 +99,220 @@ export const logout = async (): Promise<void> => {
         .delete()
         .eq('session_token', sessionToken);
     }
-
+    
     // Clear local storage
-    localStorage.removeItem('session_token');
     localStorage.removeItem('current_user');
+    localStorage.removeItem('session_token');
+    
+    console.log('Logout successful');
   } catch (error) {
     console.error('Logout error:', error);
-    // Always clear local storage even if server request fails
-    localStorage.removeItem('session_token');
+    // Still clear local storage even if database operation fails
     localStorage.removeItem('current_user');
+    localStorage.removeItem('session_token');
   }
 };
 
-// Admin functions
+export const checkSession = async (): Promise<User | null> => {
+  try {
+    // First check if user is stored in localStorage
+    const storedUser = localStorage.getItem('current_user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      console.log('Found stored user:', user.email);
+      return user;
+    }
+    
+    // Check for session token
+    const sessionToken = localStorage.getItem('session_token');
+    if (!sessionToken) {
+      console.log('No session token found');
+      return null;
+    }
+    
+    // Validate session token
+    const { data: sessions, error: sessionError } = await supabase
+      .from('user_sessions')
+      .select('user_id, expires_at')
+      .eq('session_token', sessionToken)
+      .single();
+    
+    if (sessionError || !sessions) {
+      console.log('Invalid session token');
+      localStorage.removeItem('session_token');
+      return null;
+    }
+    
+    // Check if session is expired
+    if (new Date(sessions.expires_at) < new Date()) {
+      console.log('Session expired');
+      await supabase
+        .from('user_sessions')
+        .delete()
+        .eq('session_token', sessionToken);
+      localStorage.removeItem('session_token');
+      return null;
+    }
+    
+    // Get user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', sessions.user_id)
+      .eq('is_active', true)
+      .single();
+    
+    if (profileError || !profile) {
+      console.log('User profile not found or inactive');
+      return null;
+    }
+    
+    const user: User = {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      is_active: profile.is_active,
+    };
+    
+    // Store user in localStorage for faster access
+    localStorage.setItem('current_user', JSON.stringify(user));
+    
+    console.log('Session valid for user:', user.email);
+    return user;
+  } catch (error) {
+    console.error('Session check error:', error);
+    return null;
+  }
+};
+
 export const getAllUsers = async (): Promise<User[]> => {
   try {
-    const { data, error } = await supabase
+    const { data: profiles, error } = await supabase
       .from('profiles')
-      .select('id, email, role, is_active, created_at, updated_at')
+      .select('id, email, role, is_active, created_at')
       .order('created_at', { ascending: false });
-
+    
     if (error) {
       console.error('Error fetching users:', error);
       return [];
     }
-
-    return data || [];
+    
+    return profiles.map(profile => ({
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      is_active: profile.is_active,
+    }));
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('Get users error:', error);
     return [];
   }
 };
 
 export const createUser = async (userData: CreateUserData): Promise<{ user: User | null; error: string | null }> => {
   try {
-    const hashedPassword = await hashPassword(userData.password);
-
-    const { data, error } = await supabase
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    
+    const { data: profile, error } = await supabase
       .from('profiles')
       .insert({
         email: userData.email,
         password_hash: hashedPassword,
-        role: userData.role
+        role: userData.role,
       })
-      .select('id, email, role, is_active, created_at, updated_at')
+      .select()
       .single();
-
+    
     if (error) {
-      return { user: null, error: error.message };
+      console.error('Create user error:', error);
+      if (error.code === '23505') {
+        return { user: null, error: 'Email already exists' };
+      }
+      return { user: null, error: 'Failed to create user' };
     }
-
-    return { user: data, error: null };
+    
+    const user: User = {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      is_active: profile.is_active,
+    };
+    
+    return { user, error: null };
   } catch (error) {
-    console.error('Error creating user:', error);
-    return { user: null, error: 'Failed to create user' };
+    console.error('Create user error:', error);
+    return { user: null, error: 'An unexpected error occurred' };
   }
 };
 
-export const updateUser = async (id: string, updates: Partial<Omit<User, 'id' | 'created_at' | 'updated_at'>>): Promise<{ user: User | null; error: string | null }> => {
+export const updateUser = async (userId: string, updates: Partial<{ email: string; role: 'admin' | 'user'; is_active: boolean }>): Promise<{ user: User | null; error: string | null }> => {
   try {
-    const { data, error } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .update(updates)
-      .eq('id', id)
-      .select('id, email, role, is_active, created_at, updated_at')
+      .eq('id', userId)
+      .select()
       .single();
-
+    
     if (error) {
-      return { user: null, error: error.message };
+      console.error('Update user error:', error);
+      return { user: null, error: 'Failed to update user' };
     }
-
-    return { user: data, error: null };
+    
+    const user: User = {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      is_active: profile.is_active,
+    };
+    
+    return { user, error: null };
   } catch (error) {
-    console.error('Error updating user:', error);
-    return { user: null, error: 'Failed to update user' };
+    console.error('Update user error:', error);
+    return { user: null, error: 'An unexpected error occurred' };
   }
 };
 
-export const deleteUser = async (id: string): Promise<{ success: boolean; error: string | null }> => {
+export const updateUserPassword = async (userId: string, newPassword: string): Promise<{ success: boolean; error: string | null }> => {
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ password_hash: hashedPassword })
+      .eq('id', userId);
+    
+    if (error) {
+      console.error('Update password error:', error);
+      return { success: false, error: 'Failed to update password' };
+    }
+    
+    return { success: true, error: null };
+  } catch (error) {
+    console.error('Update password error:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+};
+
+export const deleteUser = async (userId: string): Promise<{ success: boolean; error: string | null }> => {
   try {
     const { error } = await supabase
       .from('profiles')
       .delete()
-      .eq('id', id);
-
+      .eq('id', userId);
+    
     if (error) {
-      return { success: false, error: error.message };
+      console.error('Delete user error:', error);
+      return { success: false, error: 'Failed to delete user' };
     }
-
+    
     return { success: true, error: null };
   } catch (error) {
-    console.error('Error deleting user:', error);
-    return { success: false, error: 'Failed to delete user' };
+    console.error('Delete user error:', error);
+    return { success: false, error: 'An unexpected error occurred' };
   }
 };
 
-export const updateUserPassword = async (id: string, newPassword: string): Promise<{ success: boolean; error: string | null }> => {
-  try {
-    const hashedPassword = await hashPassword(newPassword);
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ password_hash: hashedPassword })
-      .eq('id', id);
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, error: null };
-  } catch (error) {
-    console.error('Error updating password:', error);
-    return { success: false, error: 'Failed to update password' };
-  }
+const generateSessionToken = (): string => {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
 };
