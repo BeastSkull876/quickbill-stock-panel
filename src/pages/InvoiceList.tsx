@@ -1,42 +1,72 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { getInvoices, saveInvoices, formatCurrency, formatDate, Invoice } from "@/utils/dataManager";
-import { Receipt, Search, Eye, Download, Printer, Edit, Trash2 } from "lucide-react";
+import { getInvoices, deleteInvoice, formatCurrency, formatDate, Invoice } from "@/utils/supabaseDataManager";
+import { Receipt, Search, Eye, Download, Printer, Trash2 } from "lucide-react";
 
 const InvoiceList = () => {
-  const [invoices, setInvoices] = useState<Invoice[]>(getInvoices());
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
+
+  const fetchInvoices = async () => {
+    try {
+      const invoiceData = await getInvoices();
+      setInvoices(invoiceData);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load invoices",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredInvoices = invoices.filter(invoice =>
-    invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.customerNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    invoice.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    invoice.customer_number.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDelete = (id: string) => {
-    const updatedInvoices = invoices.filter(invoice => invoice.id !== id);
-    setInvoices(updatedInvoices);
-    saveInvoices(updatedInvoices);
-    toast({
-      title: "Success",
-      description: "Invoice deleted successfully",
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      const success = await deleteInvoice(id);
+      if (success) {
+        setInvoices(prev => prev.filter(invoice => invoice.id !== id));
+        toast({
+          title: "Success",
+          description: "Invoice deleted successfully",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownload = (invoice: Invoice) => {
     const invoiceData = `
 INVOICE
 
-Customer: ${invoice.customerName}
-Phone: ${invoice.customerNumber}
-Date: ${formatDate(invoice.createdAt)}
+Customer: ${invoice.customer_name}
+Phone: ${invoice.customer_number}
+Date: ${formatDate(invoice.created_at)}
 Invoice ID: ${invoice.id}
 
 ITEMS:
@@ -70,9 +100,9 @@ Total: ${formatCurrency(invoice.total)}
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h1 style="text-align: center; color: #333;">INVOICE</h1>
         <div style="margin: 20px 0;">
-          <p><strong>Customer:</strong> ${invoice.customerName}</p>
-          <p><strong>Phone:</strong> ${invoice.customerNumber}</p>
-          <p><strong>Date:</strong> ${formatDate(invoice.createdAt)}</p>
+          <p><strong>Customer:</strong> ${invoice.customer_name}</p>
+          <p><strong>Phone:</strong> ${invoice.customer_number}</p>
+          <p><strong>Date:</strong> ${formatDate(invoice.created_at)}</p>
           <p><strong>Invoice ID:</strong> ${invoice.id}</p>
         </div>
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
@@ -116,6 +146,28 @@ Total: ${formatCurrency(invoice.total)}
     });
   };
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto">
+        <div className="flex items-center justify-between border-b bg-white px-6 py-4">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger className="lg:hidden" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Invoice List</h1>
+              <p className="text-sm text-gray-500">Loading invoices...</p>
+            </div>
+          </div>
+          <Receipt className="h-8 w-8 text-gray-400" />
+        </div>
+        <div className="p-6">
+          <div className="text-center">
+            <p className="text-gray-500">Loading data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="flex items-center justify-between border-b bg-white px-6 py-4">
@@ -148,7 +200,7 @@ Total: ${formatCurrency(invoice.total)}
               <Card key={invoice.id} className="hover:shadow-lg transition-shadow duration-200">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{invoice.customerName}</CardTitle>
+                    <CardTitle className="text-lg">{invoice.customer_name}</CardTitle>
                     <div className="flex gap-2">
                       <Dialog>
                         <DialogTrigger asChild>
@@ -164,11 +216,11 @@ Total: ${formatCurrency(invoice.total)}
                             <div className="space-y-4">
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                  <p><strong>Customer:</strong> {selectedInvoice.customerName}</p>
-                                  <p><strong>Phone:</strong> {selectedInvoice.customerNumber}</p>
+                                  <p><strong>Customer:</strong> {selectedInvoice.customer_name}</p>
+                                  <p><strong>Phone:</strong> {selectedInvoice.customer_number}</p>
                                 </div>
                                 <div>
-                                  <p><strong>Date:</strong> {formatDate(selectedInvoice.createdAt)}</p>
+                                  <p><strong>Date:</strong> {formatDate(selectedInvoice.created_at)}</p>
                                   <p><strong>Invoice ID:</strong> {selectedInvoice.id}</p>
                                 </div>
                               </div>
@@ -222,11 +274,11 @@ Total: ${formatCurrency(invoice.total)}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <p className="text-sm text-gray-500">Phone</p>
-                      <p className="font-medium">{invoice.customerNumber}</p>
+                      <p className="font-medium">{invoice.customer_number}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Date</p>
-                      <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+                      <p className="font-medium">{formatDate(invoice.created_at)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Items</p>

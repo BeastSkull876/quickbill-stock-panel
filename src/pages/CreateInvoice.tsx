@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useToast } from "@/hooks/use-toast";
-import { getStockItems, getInvoices, saveInvoices, generateId, formatCurrency, StockItem, Invoice, InvoiceItem } from "@/utils/dataManager";
+import { getStockItems, saveInvoice, formatCurrency, StockItem, InvoiceItem } from "@/utils/supabaseDataManager";
 import { FileText, Plus, Trash2, Calculator } from "lucide-react";
 
 const CreateInvoice = () => {
-  const [stockItems] = useState<StockItem[]>(getStockItems());
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerNumber, setCustomerNumber] = useState("");
   const [selectedItems, setSelectedItems] = useState<InvoiceItem[]>([]);
@@ -20,7 +20,32 @@ const CreateInvoice = () => {
     quantity: "1",
   });
   const [discount, setDiscount] = useState("0");
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchStockItems();
+  }, []);
+
+  const fetchStockItems = async () => {
+    try {
+      const items = await getStockItems();
+      setStockItems(items);
+    } catch (error) {
+      console.error('Error fetching stock items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load stock items",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateId = () => {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  };
 
   const addItem = () => {
     if (!currentItem.stockItemId || !currentItem.quantity) {
@@ -65,7 +90,7 @@ const CreateInvoice = () => {
   const discountAmount = (subtotal * parseFloat(discount || "0")) / 100;
   const total = subtotal - discountAmount;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!customerName || !customerNumber) {
@@ -86,33 +111,59 @@ const CreateInvoice = () => {
       return;
     }
 
-    const newInvoice: Invoice = {
-      id: generateId(),
-      customerName,
-      customerNumber,
-      items: selectedItems,
-      subtotal,
-      discount: parseFloat(discount || "0"),
-      total,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const newInvoice = await saveInvoice({
+        customer_name: customerName,
+        customer_number: customerNumber,
+        items: selectedItems,
+        subtotal,
+        discount: parseFloat(discount || "0"),
+        total,
+      });
 
-    const invoices = getInvoices();
-    const updatedInvoices = [...invoices, newInvoice];
-    saveInvoices(updatedInvoices);
+      if (newInvoice) {
+        toast({
+          title: "Success",
+          description: "Invoice created successfully",
+        });
 
-    toast({
-      title: "Success",
-      description: "Invoice created successfully",
-    });
-
-    // Reset form
-    setCustomerName("");
-    setCustomerNumber("");
-    setSelectedItems([]);
-    setCurrentItem({ stockItemId: "", quantity: "1" });
-    setDiscount("0");
+        // Reset form
+        setCustomerName("");
+        setCustomerNumber("");
+        setSelectedItems([]);
+        setCurrentItem({ stockItemId: "", quantity: "1" });
+        setDiscount("0");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create invoice",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto">
+        <div className="flex items-center justify-between border-b bg-white px-6 py-4">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger className="lg:hidden" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Create Invoice</h1>
+              <p className="text-sm text-gray-500">Loading...</p>
+            </div>
+          </div>
+          <FileText className="h-8 w-8 text-gray-400" />
+        </div>
+        <div className="p-6">
+          <div className="text-center">
+            <p className="text-gray-500">Loading data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-auto">

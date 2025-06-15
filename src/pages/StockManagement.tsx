@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,22 +7,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { getStockItems, saveStockItems, generateId, formatCurrency, StockItem } from "@/utils/dataManager";
+import { getStockItems, saveStockItem, updateStockItem, deleteStockItem, formatCurrency, StockItem } from "@/utils/supabaseDataManager";
 import { Package, Plus, Search, Edit, Trash2 } from "lucide-react";
 
 const StockManagement = () => {
-  const [stockItems, setStockItems] = useState<StockItem[]>(getStockItems());
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [formData, setFormData] = useState({ name: "", price: "" });
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchStockItems();
+  }, []);
+
+  const fetchStockItems = async () => {
+    try {
+      const items = await getStockItems();
+      setStockItems(items);
+    } catch (error) {
+      console.error('Error fetching stock items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load stock items",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredItems = stockItems.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.price) {
@@ -44,37 +65,44 @@ const StockManagement = () => {
       return;
     }
 
-    if (editingItem) {
-      const updatedItems = stockItems.map(item =>
-        item.id === editingItem.id
-          ? { ...item, name: formData.name, price }
-          : item
-      );
-      setStockItems(updatedItems);
-      saveStockItems(updatedItems);
+    try {
+      if (editingItem) {
+        const updatedItem = await updateStockItem(editingItem.id, { 
+          name: formData.name, 
+          price 
+        });
+        if (updatedItem) {
+          setStockItems(prev => prev.map(item =>
+            item.id === editingItem.id ? updatedItem : item
+          ));
+          toast({
+            title: "Success",
+            description: "Stock item updated successfully",
+          });
+        }
+        setEditingItem(null);
+      } else {
+        const newItem = await saveStockItem({
+          name: formData.name,
+          price,
+        });
+        if (newItem) {
+          setStockItems(prev => [newItem, ...prev]);
+          toast({
+            title: "Success",
+            description: "Stock item added successfully",
+          });
+        }
+        setIsAddDialogOpen(false);
+      }
+      setFormData({ name: "", price: "" });
+    } catch (error) {
       toast({
-        title: "Success",
-        description: "Stock item updated successfully",
+        title: "Error",
+        description: "Failed to save stock item",
+        variant: "destructive",
       });
-      setEditingItem(null);
-    } else {
-      const newItem: StockItem = {
-        id: generateId(),
-        name: formData.name,
-        price,
-        createdAt: new Date().toISOString(),
-      };
-      const updatedItems = [...stockItems, newItem];
-      setStockItems(updatedItems);
-      saveStockItems(updatedItems);
-      toast({
-        title: "Success",
-        description: "Stock item added successfully",
-      });
-      setIsAddDialogOpen(false);
     }
-
-    setFormData({ name: "", price: "" });
   };
 
   const handleEdit = (item: StockItem) => {
@@ -82,14 +110,23 @@ const StockManagement = () => {
     setFormData({ name: item.name, price: item.price.toString() });
   };
 
-  const handleDelete = (id: string) => {
-    const updatedItems = stockItems.filter(item => item.id !== id);
-    setStockItems(updatedItems);
-    saveStockItems(updatedItems);
-    toast({
-      title: "Success",
-      description: "Stock item deleted successfully",
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      const success = await deleteStockItem(id);
+      if (success) {
+        setStockItems(prev => prev.filter(item => item.id !== id));
+        toast({
+          title: "Success",
+          description: "Stock item deleted successfully",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete stock item",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDialogClose = () => {
@@ -97,6 +134,28 @@ const StockManagement = () => {
     setEditingItem(null);
     setFormData({ name: "", price: "" });
   };
+
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto">
+        <div className="flex items-center justify-between border-b bg-white px-6 py-4">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger className="lg:hidden" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Stock Management</h1>
+              <p className="text-sm text-gray-500">Loading stock items...</p>
+            </div>
+          </div>
+          <Package className="h-8 w-8 text-gray-400" />
+        </div>
+        <div className="p-6">
+          <div className="text-center">
+            <p className="text-gray-500">Loading data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-auto">
@@ -183,7 +242,7 @@ const StockManagement = () => {
                         {formatCurrency(item.price)}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Added {new Date(item.createdAt).toLocaleDateString()}
+                        Added {new Date(item.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="flex gap-2">

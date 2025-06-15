@@ -9,7 +9,92 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      invoice_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          name: string
+          price: number
+          quantity: number
+          total: number
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          name: string
+          price: number
+          quantity: number
+          total: number
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          name?: string
+          price?: number
+          quantity?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          created_at: string
+          customer_name: string
+          customer_number: string
+          discount: number
+          id: string
+          subtotal: number
+          total: number
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          customer_number: string
+          discount?: number
+          id?: string
+          subtotal: number
+          total: number
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          customer_number?: string
+          discount?: number
+          id?: string
+          subtotal?: number
+          total?: number
+        }
+        Relationships: []
+      }
+      stock_items: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

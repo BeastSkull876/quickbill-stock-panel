@@ -1,12 +1,33 @@
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { getStockItems, getInvoices, formatCurrency } from "@/utils/dataManager";
+import { getStockItems, getInvoices, formatCurrency, StockItem, Invoice } from "@/utils/supabaseDataManager";
 import { LayoutDashboard, Package, Receipt, DollarSign } from "lucide-react";
 
 const Dashboard = () => {
-  const stockItems = getStockItems();
-  const invoices = getInvoices();
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [stockData, invoiceData] = await Promise.all([
+          getStockItems(),
+          getInvoices()
+        ]);
+        setStockItems(stockData);
+        setInvoices(invoiceData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
   
   const totalRevenue = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
   const totalInvoices = invoices.length;
@@ -35,6 +56,28 @@ const Dashboard = () => {
       bgColor: "bg-purple-100",
     },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto">
+        <div className="flex items-center justify-between border-b bg-white px-6 py-4">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger className="lg:hidden" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-sm text-gray-500">Loading your business overview...</p>
+            </div>
+          </div>
+          <LayoutDashboard className="h-8 w-8 text-gray-400" />
+        </div>
+        <div className="p-6">
+          <div className="text-center">
+            <p className="text-gray-500">Loading data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-auto">
@@ -79,16 +122,16 @@ const Dashboard = () => {
             <CardContent>
               {invoices.length > 0 ? (
                 <div className="space-y-4">
-                  {invoices.slice(-5).reverse().map((invoice) => (
+                  {invoices.slice(0, 5).map((invoice) => (
                     <div key={invoice.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
-                        <p className="font-medium text-gray-900">{invoice.customerName}</p>
-                        <p className="text-sm text-gray-500">{invoice.customerNumber}</p>
+                        <p className="font-medium text-gray-900">{invoice.customer_name}</p>
+                        <p className="text-sm text-gray-500">{invoice.customer_number}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-gray-900">{formatCurrency(invoice.total)}</p>
                         <p className="text-xs text-gray-500">
-                          {new Date(invoice.createdAt).toLocaleDateString()}
+                          {new Date(invoice.created_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -111,7 +154,7 @@ const Dashboard = () => {
             <CardContent>
               {stockItems.length > 0 ? (
                 <div className="space-y-4">
-                  {stockItems.slice(-5).reverse().map((item) => (
+                  {stockItems.slice(0, 5).map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium text-gray-900">{item.name}</p>
