@@ -6,7 +6,8 @@ import {
   Receipt,
   ChevronRight,
   LogOut,
-  User
+  User,
+  Settings
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -47,6 +48,11 @@ const menuItems = [
     title: "Invoice List",
     url: "/invoices",
     icon: Receipt,
+  },
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings,
   },
 ];
 
