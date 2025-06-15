@@ -2,8 +2,9 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getStockItems, getInvoices, formatCurrency, StockItem, Invoice } from "@/utils/supabaseDataManager";
-import { LayoutDashboard, Package, Receipt, DollarSign } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, DollarSign, AlertTriangle } from "lucide-react";
 
 const Dashboard = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -32,6 +33,7 @@ const Dashboard = () => {
   const totalRevenue = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
   const totalInvoices = invoices.length;
   const totalItems = stockItems.length;
+  const lowStockItems = stockItems.filter(item => item.quantity <= 5);
 
   const stats = [
     {
@@ -93,6 +95,15 @@ const Dashboard = () => {
       </div>
 
       <div className="p-6">
+        {lowStockItems.length > 0 && (
+          <Alert className="mb-6 border-orange-200 bg-orange-50">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              <strong>Low Stock Alert:</strong> {lowStockItems.length} item(s) have 5 or fewer units remaining. Check your stock management to reorder.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {stats.map((stat) => (
             <Card key={stat.title} className="hover:shadow-lg transition-shadow duration-200">
@@ -155,10 +166,17 @@ const Dashboard = () => {
               {stockItems.length > 0 ? (
                 <div className="space-y-4">
                   {stockItems.slice(0, 5).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg ${item.quantity <= 5 ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
                       <div>
-                        <p className="font-medium text-gray-900">{item.name}</p>
-                        <p className="text-sm text-gray-500">Stock Item</p>
+                        <p className="font-medium text-gray-900 flex items-center gap-2">
+                          {item.name}
+                          {item.quantity <= 5 && (
+                            <AlertTriangle className="h-4 w-4 text-orange-600" />
+                          )}
+                        </p>
+                        <p className={`text-sm ${item.quantity <= 5 ? 'text-orange-600' : 'text-gray-500'}`}>
+                          Qty: {item.quantity}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-gray-900">{formatCurrency(item.price)}</p>

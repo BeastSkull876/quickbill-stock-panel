@@ -1,10 +1,10 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface StockItem {
   id: string;
   name: string;
   price: number;
+  quantity: number;
   created_at: string;
 }
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +7,15 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { getStockItems, saveStockItem, updateStockItem, deleteStockItem, formatCurrency, StockItem } from "@/utils/supabaseDataManager";
-import { Package, Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Package, Plus, Search, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const StockManagement = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
-  const [formData, setFormData] = useState({ name: "", price: "" });
+  const [formData, setFormData] = useState({ name: "", price: "", quantity: "" });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -46,7 +46,7 @@ const StockManagement = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.price) {
+    if (!formData.name || !formData.price || !formData.quantity) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -56,6 +56,8 @@ const StockManagement = () => {
     }
 
     const price = parseFloat(formData.price);
+    const quantity = parseInt(formData.quantity);
+    
     if (isNaN(price) || price <= 0) {
       toast({
         title: "Error",
@@ -65,11 +67,21 @@ const StockManagement = () => {
       return;
     }
 
+    if (isNaN(quantity) || quantity < 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid quantity",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       if (editingItem) {
         const updatedItem = await updateStockItem(editingItem.id, { 
           name: formData.name, 
-          price 
+          price,
+          quantity
         });
         if (updatedItem) {
           setStockItems(prev => prev.map(item =>
@@ -85,6 +97,7 @@ const StockManagement = () => {
         const newItem = await saveStockItem({
           name: formData.name,
           price,
+          quantity,
         });
         if (newItem) {
           setStockItems(prev => [newItem, ...prev]);
@@ -95,7 +108,7 @@ const StockManagement = () => {
         }
         setIsAddDialogOpen(false);
       }
-      setFormData({ name: "", price: "" });
+      setFormData({ name: "", price: "", quantity: "" });
     } catch (error) {
       toast({
         title: "Error",
@@ -107,7 +120,11 @@ const StockManagement = () => {
 
   const handleEdit = (item: StockItem) => {
     setEditingItem(item);
-    setFormData({ name: item.name, price: item.price.toString() });
+    setFormData({ 
+      name: item.name, 
+      price: item.price.toString(),
+      quantity: item.quantity.toString()
+    });
     setIsAddDialogOpen(false);
   };
 
@@ -132,14 +149,14 @@ const StockManagement = () => {
 
   const handleAddClick = () => {
     setEditingItem(null);
-    setFormData({ name: "", price: "" });
+    setFormData({ name: "", price: "", quantity: "" });
     setIsAddDialogOpen(true);
   };
 
   const handleDialogClose = () => {
     setIsAddDialogOpen(false);
     setEditingItem(null);
-    setFormData({ name: "", price: "" });
+    setFormData({ name: "", price: "", quantity: "" });
   };
 
   const isDialogOpen = isAddDialogOpen || !!editingItem;
@@ -166,6 +183,8 @@ const StockManagement = () => {
     );
   }
 
+  const lowStockItems = filteredItems.filter(item => item.quantity <= 5);
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="flex items-center justify-between border-b bg-white px-6 py-4">
@@ -180,6 +199,15 @@ const StockManagement = () => {
       </div>
 
       <div className="p-6">
+        {lowStockItems.length > 0 && (
+          <Alert className="mb-6 border-orange-200 bg-orange-50">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              <strong>Low Stock Alert:</strong> {lowStockItems.length} item(s) have 5 or fewer units remaining: {lowStockItems.map(item => item.name).join(', ')}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -224,6 +252,17 @@ const StockManagement = () => {
                   placeholder="Enter price"
                 />
               </div>
+              <div>
+                <Label htmlFor="quantity">Quantity</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min="0"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  placeholder="Enter quantity"
+                />
+              </div>
               <div className="flex gap-2 pt-4">
                 <Button type="submit" className="flex-1">
                   {editingItem ? "Update Item" : "Add Item"}
@@ -239,15 +278,23 @@ const StockManagement = () => {
         {filteredItems.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredItems.map((item) => (
-              <Card key={item.id} className="hover:shadow-lg transition-shadow duration-200">
+              <Card key={item.id} className={`hover:shadow-lg transition-shadow duration-200 ${item.quantity <= 5 ? 'border-orange-200 bg-orange-50' : ''}`}>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{item.name}</CardTitle>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    {item.name}
+                    {item.quantity <= 5 && (
+                      <AlertTriangle className="h-5 w-5 text-orange-600" />
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-2xl font-bold text-green-600">
                         {formatCurrency(item.price)}
+                      </p>
+                      <p className={`text-sm font-medium ${item.quantity <= 5 ? 'text-orange-600' : 'text-gray-600'}`}>
+                        Qty: {item.quantity}
                       </p>
                       <p className="text-sm text-gray-500">
                         Added {new Date(item.created_at).toLocaleDateString()}
