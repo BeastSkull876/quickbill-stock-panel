@@ -103,12 +103,6 @@ const Login = () => {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          
-          <div className="mt-6 p-4 bg-gray-100 rounded-lg">
-            <h3 className="font-semibold text-sm mb-2">Admin Login Credentials:</h3>
-            <p className="text-sm text-gray-600">Email: admin@vickyscafe.com</p>
-            <p className="text-sm text-gray-600">Password: admin123</p>
-          </div>
         </CardContent>
       </Card>
     </div>
