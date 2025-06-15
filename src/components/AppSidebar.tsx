@@ -51,7 +51,7 @@ export function AppSidebar() {
     <Sidebar className="border-r bg-white shadow-sm">
       <SidebarHeader className="border-b px-6 py-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">QuickBill</h2>
+          <h2 className="text-xl font-bold text-gray-900">Vicky's Cafe</h2>
           <SidebarTrigger className="lg:hidden">
             <ChevronRight className="h-4 w-4" />
           </SidebarTrigger>
