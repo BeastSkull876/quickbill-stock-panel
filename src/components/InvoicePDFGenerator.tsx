@@ -55,7 +55,7 @@ export const generateInvoicePDF = async ({ invoice, branding, companyProfile }: 
   
   yPos += 15;
   
-  // Company details
+  // Company details - Enhanced with all available information
   pdf.setFontSize(10);
   pdf.setTextColor(100, 100, 100);
   
@@ -74,8 +74,18 @@ export const generateInvoicePDF = async ({ invoice, branding, companyProfile }: 
     yPos += 5;
   }
   
+  if (companyProfile?.website) {
+    pdf.text(`Website: ${companyProfile.website}`, 20, yPos);
+    yPos += 5;
+  }
+  
+  if (companyProfile?.tax_id) {
+    pdf.text(`Tax ID: ${companyProfile.tax_id}`, 20, yPos);
+    yPos += 5;
+  }
+  
   // Invoice details (right side)
-  let rightYPos = yPos - 20;
+  let rightYPos = yPos - 25;
   pdf.setTextColor(60, 60, 60);
   pdf.text(`Invoice #: INV-${invoice.id.slice(-8)}`, pageWidth - 20, rightYPos, { align: 'right' });
   rightYPos += 7;
@@ -151,11 +161,18 @@ export const generateInvoicePDF = async ({ invoice, branding, companyProfile }: 
   pdf.text('Total:', totalsX, yPos);
   pdf.text(`₹${invoice.total.toFixed(2)}`, pageWidth - 25, yPos, { align: 'right' });
   
-  // Footer
+  // Footer with additional company info
+  yPos = pageHeight - 30;
+  pdf.setFontSize(8);
+  pdf.setTextColor(120, 120, 120);
+  
   if (companyProfile?.website) {
-    pdf.setFontSize(8);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text(`Visit us: ${companyProfile.website}`, 20, pageHeight - 15);
+    pdf.text(`Visit us: ${companyProfile.website}`, 20, yPos);
+    yPos += 5;
+  }
+  
+  if (companyProfile?.company_email) {
+    pdf.text(`Contact: ${companyProfile.company_email}`, 20, yPos);
   }
   
   // Save the PDF
