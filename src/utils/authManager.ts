@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import bcrypt from 'bcryptjs';
 
@@ -7,6 +6,7 @@ export interface User {
   email: string;
   role: 'admin' | 'user';
   is_active: boolean;
+  created_at: string;
 }
 
 export interface LoginCredentials {
@@ -57,6 +57,7 @@ export const login = async ({ email, password, keepLoggedIn }: LoginCredentials)
       email: profile.email,
       role: profile.role,
       is_active: profile.is_active,
+      created_at: profile.created_at,
     };
     
     // Handle session persistence
@@ -172,6 +173,7 @@ export const checkSession = async (): Promise<User | null> => {
       email: profile.email,
       role: profile.role,
       is_active: profile.is_active,
+      created_at: profile.created_at,
     };
     
     // Store user in localStorage for faster access
@@ -202,6 +204,7 @@ export const getAllUsers = async (): Promise<User[]> => {
       email: profile.email,
       role: profile.role,
       is_active: profile.is_active,
+      created_at: profile.created_at,
     }));
   } catch (error) {
     console.error('Get users error:', error);
@@ -236,6 +239,7 @@ export const createUser = async (userData: CreateUserData): Promise<{ user: User
       email: profile.email,
       role: profile.role,
       is_active: profile.is_active,
+      created_at: profile.created_at,
     };
     
     return { user, error: null };
@@ -264,6 +268,7 @@ export const updateUser = async (userId: string, updates: Partial<{ email: strin
       email: profile.email,
       role: profile.role,
       is_active: profile.is_active,
+      created_at: profile.created_at,
     };
     
     return { user, error: null };
