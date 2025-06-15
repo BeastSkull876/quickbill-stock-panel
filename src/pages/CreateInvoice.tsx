@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -229,7 +228,12 @@ const CreateInvoice = () => {
                     <SelectContent className="bg-white">
                       {stockItems.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
-                          {item.name} - {formatCurrency(item.price)}
+                          <div className="flex flex-col">
+                            <span>{item.name} - {formatCurrency(item.price)}</span>
+                            <span className="text-xs text-gray-500">
+                              Stock: {item.quantity} {item.quantity <= 5 ? '⚠️ Low Stock' : ''}
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
