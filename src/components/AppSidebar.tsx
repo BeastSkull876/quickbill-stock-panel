@@ -139,7 +139,7 @@ export function AppSidebar() {
             </Button>
           </div>
         )}
-        <p className="text-xs text-gray-400 text-center mt-2">Made by Aarav ❤️</p>
+        <p className="text-xs text-gray-400 text-center mt-2">❤️ Made by Aarav ❤️</p>
       </SidebarFooter>
     </Sidebar>
   );
