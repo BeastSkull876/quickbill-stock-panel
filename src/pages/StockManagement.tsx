@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { getStockItems, saveStockItem, updateStockItem, deleteStockItem, formatCurrency, StockItem } from "@/utils/supabaseDataManager";
 import { Package, Plus, Search, Edit, Trash2, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { supabase } from "@/integrations/supabase/client";
 
 const StockManagement = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -79,17 +77,6 @@ const StockManagement = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "No authenticated user found",
-          variant: "destructive",
-        });
-        return;
-      }
-
       if (editingItem) {
         const updatedItem = await updateStockItem(editingItem.id, { 
           name: formData.name, 
@@ -109,10 +96,8 @@ const StockManagement = () => {
       } else {
         const newItem = await saveStockItem({
           name: formData.name,
-          description: "",
           price,
           quantity,
-          user_id: user.id,
         });
         if (newItem) {
           setStockItems(prev => [newItem, ...prev]);

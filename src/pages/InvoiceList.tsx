@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +7,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { getInvoices, deleteInvoice, formatCurrency, formatDate, Invoice } from "@/utils/supabaseDataManager";
-import { Receipt, Search, Eye, Download, Printer, Trash2, Settings } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Receipt, Search, Eye, Download, Printer, Trash2 } from "lucide-react";
 
 const InvoiceList = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -15,7 +15,6 @@ const InvoiceList = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchInvoices();
@@ -179,17 +178,7 @@ Total: ${formatCurrency(invoice.total)}
             <p className="text-sm text-gray-500">View, download, and manage your invoices</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            onClick={() => navigate('/invoice-template-editor')}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Template Editor
-          </Button>
-          <Receipt className="h-8 w-8 text-gray-400" />
-        </div>
+        <Receipt className="h-8 w-8 text-gray-400" />
       </div>
 
       <div className="p-6">
