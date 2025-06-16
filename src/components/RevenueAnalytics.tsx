@@ -170,7 +170,7 @@ const RevenueAnalytics = ({ invoices }: RevenueAnalyticsProps) => {
                   />
                   <ChartTooltip 
                     content={<ChartTooltipContent />}
-                    formatter={(value: number) => [formatCurrency(value), "Revenue"]}
+                    formatter={(value: number) => [formatCurrency(value), " Revenue"]}
                   />
                   <Bar 
                     dataKey="revenue" 
