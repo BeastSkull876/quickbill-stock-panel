@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import { Invoice, UserBranding, CompanyProfile } from '@/utils/supabaseDataManager';
 
@@ -8,8 +9,7 @@ interface PDFGeneratorProps {
 }
 
 export const generateInvoicePDF = async ({ invoice, branding, companyProfile }: PDFGeneratorProps) => {
-  console.log('Generating PDF with company profile:', companyProfile);
-  console.log('Branding data:', branding);
+  console.log('Generating PDF with:', { invoice, branding, companyProfile });
   
   const pdf = new jsPDF();
   const pageWidth = pdf.internal.pageSize.width;
@@ -97,7 +97,7 @@ export const generateInvoicePDF = async ({ invoice, branding, companyProfile }: 
   
   yPos += 25;
   
-  // Table header with light green background
+  // Table header with light gray background
   pdf.setFillColor(lightGrayRgb.r, lightGrayRgb.g, lightGrayRgb.b);
   pdf.rect(20, yPos - 5, pageWidth - 40, 12, 'F');
   

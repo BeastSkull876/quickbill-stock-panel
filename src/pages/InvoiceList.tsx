@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { getInvoices, deleteInvoice, formatCurrency, formatDate, Invoice } from "@/utils/supabaseDataManager";
+import { getInvoices, deleteInvoice, formatCurrency, formatDate, Invoice, getUserBranding, getCompanyProfile, UserBranding, CompanyProfile } from "@/utils/supabaseDataManager";
+import { generateInvoicePDF } from "@/components/InvoicePDFGenerator";
 import { Receipt, Search, Eye, Download, Printer, Trash2 } from "lucide-react";
 
 const InvoiceList = () => {
@@ -14,21 +14,30 @@ const InvoiceList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [branding, setBranding] = useState<UserBranding | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchInvoices();
+    fetchData();
   }, []);
 
-  const fetchInvoices = async () => {
+  const fetchData = async () => {
     try {
-      const invoiceData = await getInvoices();
+      const [invoiceData, brandingData, profileData] = await Promise.all([
+        getInvoices(),
+        getUserBranding(),
+        getCompanyProfile()
+      ]);
+      
       setInvoices(invoiceData);
+      setBranding(brandingData);
+      setCompanyProfile(profileData);
     } catch (error) {
-      console.error('Error fetching invoices:', error);
+      console.error('Error fetching data:', error);
       toast({
         title: "Error",
-        description: "Failed to load invoices",
+        description: "Failed to load data",
         variant: "destructive",
       });
     } finally {
@@ -60,39 +69,26 @@ const InvoiceList = () => {
     }
   };
 
-  const handleDownload = (invoice: Invoice) => {
-    const invoiceData = `
-INVOICE
-
-Customer: ${invoice.customer_name}
-Phone: ${invoice.customer_number}
-Date: ${formatDate(invoice.created_at)}
-Invoice ID: ${invoice.id}
-
-ITEMS:
-${invoice.items.map(item => 
-  `${item.name} - ${formatCurrency(item.price)} x ${item.quantity} = ${formatCurrency(item.total)}`
-).join('\n')}
-
-Subtotal: ${formatCurrency(invoice.subtotal)}
-Discount: ${invoice.discount}%
-Total: ${formatCurrency(invoice.total)}
-    `;
-
-    const blob = new Blob([invoiceData], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `invoice-${invoice.id}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Success",
-      description: "Invoice downloaded successfully",
-    });
+  const handleDownload = async (invoice: Invoice) => {
+    try {
+      await generateInvoicePDF({
+        invoice,
+        branding,
+        companyProfile
+      });
+      
+      toast({
+        title: "Success",
+        description: "Invoice PDF generated successfully",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePrint = (invoice: Invoice) => {
