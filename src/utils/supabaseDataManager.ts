@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabase";
+
+import { supabase } from "@/integrations/supabase/client";
 
 export interface StockItem {
   id: string;
@@ -58,6 +59,15 @@ export interface CompanyProfile {
   updated_at: string;
 }
 
+export interface InvoiceTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  preview_image?: string;
+  is_premium: boolean;
+  created_at: string;
+}
+
 export const getStockItems = async (): Promise<StockItem[]> => {
   try {
     const { data, error } = await supabase
@@ -115,6 +125,27 @@ export const saveStockItem = async (item: Omit<StockItem, 'id' | 'created_at' | 
   }
 };
 
+export const updateStockItem = async (id: string, item: Partial<Omit<StockItem, 'id' | 'created_at' | 'updated_at'>>): Promise<StockItem | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('stock_items')
+      .update(item)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error("Error updating stock item:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in updateStockItem:", error);
+    throw error;
+  }
+};
+
 export const deleteStockItem = async (id: string): Promise<boolean> => {
   try {
     const { error } = await supabase
@@ -158,6 +189,13 @@ export const saveInvoice = async (
   stockItemsMap: Map<string, StockItem>
 ): Promise<Invoice | null> => {
   try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
+
     // Start a Supabase transaction
     const { data: newInvoice, error: invoiceError } = await supabase.from('invoices').insert([{
       customer_name: invoice.customer_name,
@@ -166,7 +204,7 @@ export const saveInvoice = async (
       subtotal: invoice.subtotal,
       discount: invoice.discount,
       total: invoice.total,
-      user_id: supabase.auth.user()?.id,
+      user_id: user.id,
     }]).select('*').single();
 
     if (invoiceError) {
@@ -223,8 +261,9 @@ export const deleteInvoice = async (id: string): Promise<boolean> => {
 
 export const getUserBranding = async (): Promise<UserBranding | null> => {
   try {
-    const userId = supabase.auth.user()?.id;
-    if (!userId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
       console.error("No user ID found.");
       return null;
     }
@@ -232,8 +271,8 @@ export const getUserBranding = async (): Promise<UserBranding | null> => {
     const { data, error } = await supabase
       .from('user_branding')
       .select('*')
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', user.id)
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching user branding:", error);
@@ -247,12 +286,23 @@ export const getUserBranding = async (): Promise<UserBranding | null> => {
   }
 };
 
-export const saveUserBranding = async (branding: UserBranding): Promise<UserBranding | null> => {
+export const saveUserBranding = async (branding: Partial<UserBranding>): Promise<UserBranding | null> => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
+
+    const brandingData = {
+      ...branding,
+      user_id: user.id,
+    };
+
     const { data, error } = await supabase
       .from('user_branding')
       .upsert(
-        [branding],
+        [brandingData],
         { onConflict: 'user_id' }
       )
       .select('*')
@@ -272,8 +322,9 @@ export const saveUserBranding = async (branding: UserBranding): Promise<UserBran
 
 export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
   try {
-    const userId = supabase.auth.user()?.id;
-    if (!userId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
       console.error("No user ID found.");
       return null;
     }
@@ -281,8 +332,8 @@ export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
     const { data, error } = await supabase
       .from('company_profiles')
       .select('*')
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', user.id)
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching company profile:", error);
@@ -296,12 +347,23 @@ export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
   }
 };
 
-export const saveCompanyProfile = async (profile: CompanyProfile): Promise<CompanyProfile | null> => {
+export const saveCompanyProfile = async (profile: Partial<CompanyProfile>): Promise<CompanyProfile | null> => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
+
+    const profileData = {
+      ...profile,
+      user_id: user.id,
+    };
+
     const { data, error } = await supabase
       .from('company_profiles')
       .upsert(
-        [profile],
+        [profileData],
         { onConflict: 'user_id' }
       )
       .select('*')
@@ -315,6 +377,56 @@ export const saveCompanyProfile = async (profile: CompanyProfile): Promise<Compa
     return data;
   } catch (error) {
     console.error("Error in saveCompanyProfile:", error);
+    throw error;
+  }
+};
+
+export const getInvoiceTemplates = async (): Promise<InvoiceTemplate[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('invoice_templates')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching invoice templates:", error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in getInvoiceTemplates:", error);
+    throw error;
+  }
+};
+
+export const uploadLogo = async (file: File): Promise<string> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+    const filePath = `logos/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('assets')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage
+      .from('assets')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (error) {
+    console.error("Error uploading logo:", error);
     throw error;
   }
 };
