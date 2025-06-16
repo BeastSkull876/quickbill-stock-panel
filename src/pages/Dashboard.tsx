@@ -5,6 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getStockItems, getInvoices, formatCurrency, StockItem, Invoice } from "@/utils/supabaseDataManager";
 import { LayoutDashboard, Package, Receipt, DollarSign, AlertTriangle } from "lucide-react";
+import RevenueAnalytics from "@/components/RevenueAnalytics";
 
 const Dashboard = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -94,9 +95,9 @@ const Dashboard = () => {
         <LayoutDashboard className="h-8 w-8 text-gray-400" />
       </div>
 
-      <div className="p-6">
+      <div className="p-6 space-y-6">
         {lowStockItems.length > 0 && (
-          <Alert className="mb-6 border-orange-200 bg-orange-50">
+          <Alert className="border-orange-200 bg-orange-50">
             <AlertTriangle className="h-4 w-4 text-orange-600" />
             <AlertDescription className="text-orange-800">
               <strong>Low Stock Alert:</strong> {lowStockItems.length} item(s) have 5 or fewer units remaining. Check your stock management to reorder.
@@ -125,7 +126,9 @@ const Dashboard = () => {
           ))}
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <RevenueAnalytics invoices={invoices} />
+
+        <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg font-semibold">Recent Activity</CardTitle>
