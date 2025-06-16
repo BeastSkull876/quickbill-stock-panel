@@ -1,12 +1,14 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 export interface StockItem {
   id: string;
+  user_id: string;
   name: string;
+  description: string;
   price: number;
   quantity: number;
-  user_id: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface InvoiceItem {
@@ -19,14 +21,28 @@ export interface InvoiceItem {
 
 export interface Invoice {
   id: string;
+  user_id: string;
   customer_name: string;
   customer_number: string;
   items: InvoiceItem[];
   subtotal: number;
   discount: number;
   total: number;
-  user_id: string;
   created_at: string;
+  updated_at: string;
+}
+
+export interface UserBranding {
+  id: string;
+  user_id: string;
+  primary_color: string;
+  secondary_color: string;
+  font_family: string;
+  template_id: string;
+  logo_url?: string;
+  template_settings?: string; // JSON string for template customization
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CompanyProfile {
@@ -36,454 +52,281 @@ export interface CompanyProfile {
   company_address?: string;
   company_phone?: string;
   company_email?: string;
-  tax_id?: string;
   website?: string;
+  tax_id?: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface UserBranding {
-  id: string;
-  user_id: string;
-  logo_url?: string;
-  primary_color: string;
-  secondary_color: string;
-  font_family: string;
-  template_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface InvoiceTemplate {
-  id: string;
-  name: string;
-  description?: string;
-  preview_image?: string;
-  is_premium: boolean;
-  created_at: string;
-}
-
-// Stock Items Functions
 export const getStockItems = async (): Promise<StockItem[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return [];
-  }
+  try {
+    const { data, error } = await supabase
+      .from('stock_items')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  const { data, error } = await supabase
-    .from('stock_items')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-  
-  if (error) {
-    console.error('Error fetching stock items:', error);
-    return [];
+    if (error) {
+      console.error("Error fetching stock items:", error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in getStockItems:", error);
+    throw error;
   }
-  
-  return data || [];
 };
 
-export const saveStockItem = async (item: Omit<StockItem, 'id' | 'created_at' | 'user_id'>): Promise<StockItem | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return null;
-  }
+export const saveStockItem = async (item: Omit<StockItem, 'id' | 'created_at' | 'updated_at'>, id?: string): Promise<StockItem | null> => {
+  try {
+    if (id) {
+      // Update existing stock item
+      const { data, error } = await supabase
+        .from('stock_items')
+        .update(item)
+        .eq('id', id)
+        .select('*')
+        .single();
 
-  const { data, error } = await supabase
-    .from('stock_items')
-    .insert([{ ...item, user_id: user.id }])
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error saving stock item:', error);
-    return null;
-  }
-  
-  return data;
-};
+      if (error) {
+        console.error("Error updating stock item:", error);
+        throw error;
+      }
 
-export const updateStockItem = async (id: string, updates: Partial<Omit<StockItem, 'id' | 'created_at' | 'user_id'>>): Promise<StockItem | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return null;
-  }
+      return data;
+    } else {
+      // Create new stock item
+      const { data, error } = await supabase
+        .from('stock_items')
+        .insert([item])
+        .select('*')
+        .single();
 
-  const { data, error } = await supabase
-    .from('stock_items')
-    .update(updates)
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error updating stock item:', error);
-    return null;
+      if (error) {
+        console.error("Error saving stock item:", error);
+        throw error;
+      }
+
+      return data;
+    }
+  } catch (error) {
+    console.error("Error in saveStockItem:", error);
+    throw error;
   }
-  
-  return data;
 };
 
 export const deleteStockItem = async (id: string): Promise<boolean> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return false;
-  }
+  try {
+    const { error } = await supabase
+      .from('stock_items')
+      .delete()
+      .eq('id', id);
 
-  const { error } = await supabase
-    .from('stock_items')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id);
-  
-  if (error) {
-    console.error('Error deleting stock item:', error);
-    return false;
-  }
-  
-  return true;
-};
-
-// Invoice Functions
-export const getInvoices = async (): Promise<Invoice[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return [];
-  }
-
-  const { data: invoicesData, error: invoicesError } = await supabase
-    .from('invoices')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-  
-  if (invoicesError) {
-    console.error('Error fetching invoices:', invoicesError);
-    return [];
-  }
-  
-  if (!invoicesData) return [];
-  
-  // Fetch invoice items for each invoice
-  const invoicesWithItems = await Promise.all(
-    invoicesData.map(async (invoice) => {
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('invoice_items')
-        .select('*')
-        .eq('invoice_id', invoice.id);
-      
-      if (itemsError) {
-        console.error('Error fetching invoice items:', itemsError);
-        return {
-          ...invoice,
-          items: [],
-          customer_name: invoice.customer_name,
-          customer_number: invoice.customer_number,
-          created_at: invoice.created_at,
-        };
-      }
-      
-      return {
-        ...invoice,
-        items: itemsData || [],
-        customer_name: invoice.customer_name,
-        customer_number: invoice.customer_number,
-        created_at: invoice.created_at,
-      };
-    })
-  );
-  
-  return invoicesWithItems;
-};
-
-export const saveInvoice = async (invoice: Omit<Invoice, 'id' | 'created_at' | 'user_id'>, stockItemsMap?: Map<string, StockItem>): Promise<Invoice | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return null;
-  }
-
-  // First, check stock availability and prepare stock updates
-  const stockUpdates = new Map<string, number>();
-  
-  for (const item of invoice.items) {
-    // Find the stock item by name (since invoice items store names, not IDs)
-    const stockItem = stockItemsMap ? 
-      Array.from(stockItemsMap.values()).find(stock => stock.name === item.name) :
-      null;
-    
-    if (stockItem) {
-      const newQuantity = stockItem.quantity - item.quantity;
-      if (newQuantity < 0) {
-        console.error(`Insufficient stock for ${item.name}. Available: ${stockItem.quantity}, Required: ${item.quantity}`);
-        throw new Error(`Insufficient stock for ${item.name}. Available: ${stockItem.quantity}, Required: ${item.quantity}`);
-      }
-      stockUpdates.set(stockItem.id, newQuantity);
+    if (error) {
+      console.error("Error deleting stock item:", error);
+      return false;
     }
-  }
 
-  // Insert the invoice
-  const { data: invoiceData, error: invoiceError } = await supabase
-    .from('invoices')
-    .insert([{
+    return true;
+  } catch (error) {
+    console.error("Error in deleteStockItem:", error);
+    return false;
+  }
+};
+
+export const getInvoices = async (): Promise<Invoice[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching invoices:", error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in getInvoices:", error);
+    throw error;
+  }
+};
+
+export const saveInvoice = async (
+  invoice: Omit<Invoice, 'id' | 'created_at' | 'updated_at' | 'user_id'>,
+  stockItemsMap: Map<string, StockItem>
+): Promise<Invoice | null> => {
+  try {
+    // Start a Supabase transaction
+    const { data: newInvoice, error: invoiceError } = await supabase.from('invoices').insert([{
       customer_name: invoice.customer_name,
       customer_number: invoice.customer_number,
+      items: invoice.items,
       subtotal: invoice.subtotal,
       discount: invoice.discount,
       total: invoice.total,
-      user_id: user.id,
-    }])
-    .select()
-    .single();
-  
-  if (invoiceError || !invoiceData) {
-    console.error('Error saving invoice:', invoiceError);
-    return null;
-  }
-  
-  // Insert the invoice items
-  if (invoice.items.length > 0) {
-    const itemsToInsert = invoice.items.map(item => ({
-      invoice_id: invoiceData.id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      total: item.total,
-    }));
-    
-    const { error: itemsError } = await supabase
-      .from('invoice_items')
-      .insert(itemsToInsert);
-    
-    if (itemsError) {
-      console.error('Error saving invoice items:', itemsError);
-      // Consider rolling back the invoice if items fail to save
-      throw new Error('Failed to save invoice items');
-    }
-  }
+      user_id: supabase.auth.user()?.id,
+    }]).select('*').single();
 
-  // Update stock quantities
-  for (const [stockItemId, newQuantity] of stockUpdates) {
-    console.log(`Updating stock item ${stockItemId} quantity to ${newQuantity}`);
-    const { error: stockError } = await supabase
-      .from('stock_items')
-      .update({ quantity: newQuantity })
-      .eq('id', stockItemId)
-      .eq('user_id', user.id);
-    
-    if (stockError) {
-      console.error('Error updating stock quantity:', stockError);
-      // Log error but don't fail the invoice creation
+    if (invoiceError) {
+      console.error("Error creating invoice:", invoiceError);
+      throw invoiceError;
     }
+
+    // Update stock quantities
+    for (const item of invoice.items) {
+      const stockItem = stockItemsMap.get(item.name);
+      if (stockItem) {
+        const newQuantity = stockItem.quantity - item.quantity;
+        if (newQuantity < 0) {
+          throw new Error(`Insufficient stock for item: ${item.name}`);
+        }
+
+        const { error: stockError } = await supabase
+          .from('stock_items')
+          .update({ quantity: newQuantity })
+          .eq('id', stockItem.id);
+
+        if (stockError) {
+          console.error("Error updating stock item:", stockError);
+          throw stockError;
+        }
+      }
+    }
+
+    return newInvoice;
+  } catch (error) {
+    console.error("Error in saveInvoice:", error);
+    throw error;
   }
-  
-  return {
-    ...invoiceData,
-    items: invoice.items,
-    customer_name: invoiceData.customer_name,
-    customer_number: invoiceData.customer_number,
-    created_at: invoiceData.created_at,
-  };
 };
 
 export const deleteInvoice = async (id: string): Promise<boolean> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return false;
-  }
+  try {
+    const { error } = await supabase
+      .from('invoices')
+      .delete()
+      .eq('id', id);
 
-  // Delete invoice (items will be deleted automatically due to CASCADE)
-  const { error } = await supabase
-    .from('invoices')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id);
-  
-  if (error) {
-    console.error('Error deleting invoice:', error);
+    if (error) {
+      console.error("Error deleting invoice:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in deleteInvoice:", error);
     return false;
   }
-  
-  return true;
 };
 
-// Company Profile Functions
-export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from('company_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
-  
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // No company profile found, return null
+export const getUserBranding = async (): Promise<UserBranding | null> => {
+  try {
+    const userId = supabase.auth.user()?.id;
+    if (!userId) {
+      console.error("No user ID found.");
       return null;
     }
-    console.error('Error fetching company profile:', error);
-    return null;
-  }
-  
-  return data;
-};
 
-export const saveCompanyProfile = async (profile: Omit<CompanyProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<CompanyProfile | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return null;
-  }
+    const { data, error } = await supabase
+      .from('user_branding')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-  const { data, error } = await supabase
-    .from('company_profiles')
-    .upsert([{ ...profile, user_id: user.id }])
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error saving company profile:', error);
-    return null;
-  }
-  
-  return data;
-};
-
-// User Branding Functions
-export const getUserBranding = async (): Promise<UserBranding | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from('user_branding')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
-  
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // No branding found, return default
-      return {
-        id: '',
-        user_id: user.id,
-        primary_color: '#3B82F6',
-        secondary_color: '#EF4444',
-        font_family: 'Inter',
-        template_id: 'modern',
-        created_at: '',
-        updated_at: ''
-      };
+    if (error) {
+      console.error("Error fetching user branding:", error);
+      return null;
     }
-    console.error('Error fetching user branding:', error);
+
+    return data || null;
+  } catch (error) {
+    console.error("Error in getUserBranding:", error);
     return null;
   }
-  
-  return data;
 };
 
-export const saveUserBranding = async (branding: Omit<UserBranding, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<UserBranding | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
-    return null;
-  }
+export const saveUserBranding = async (branding: UserBranding): Promise<UserBranding | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('user_branding')
+      .upsert(
+        [branding],
+        { onConflict: 'user_id' }
+      )
+      .select('*')
+      .single();
 
-  const { data, error } = await supabase
-    .from('user_branding')
-    .upsert([{ ...branding, user_id: user.id }])
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error saving user branding:', error);
-    return null;
+    if (error) {
+      console.error("Error saving user branding:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in saveUserBranding:", error);
+    throw error;
   }
-  
-  return data;
 };
 
-// Invoice Templates Functions
-export const getInvoiceTemplates = async (): Promise<InvoiceTemplate[]> => {
-  const { data, error } = await supabase
-    .from('invoice_templates')
-    .select('*')
-    .order('created_at', { ascending: true });
-  
-  if (error) {
-    console.error('Error fetching invoice templates:', error);
-    return [];
-  }
-  
-  return data || [];
-};
+export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
+  try {
+    const userId = supabase.auth.user()?.id;
+    if (!userId) {
+      console.error("No user ID found.");
+      return null;
+    }
 
-// Logo Upload Function
-export const uploadLogo = async (file: File): Promise<string | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    console.error('No authenticated user found');
+    const { data, error } = await supabase
+      .from('company_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching company profile:", error);
+      return null;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error("Error in getCompanyProfile:", error);
     return null;
   }
-
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${user.id}/logo.${fileExt}`;
-
-  const { data, error } = await supabase.storage
-    .from('logos')
-    .upload(fileName, file, { upsert: true });
-
-  if (error) {
-    console.error('Error uploading logo:', error);
-    return null;
-  }
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('logos')
-    .getPublicUrl(fileName);
-
-  return publicUrl;
 };
 
-// Utility functions
-export const formatCurrency = (amount: number) => {
+export const saveCompanyProfile = async (profile: CompanyProfile): Promise<CompanyProfile | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('company_profiles')
+      .upsert(
+        [profile],
+        { onConflict: 'user_id' }
+      )
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error("Error saving company profile:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in saveCompanyProfile:", error);
+    throw error;
+  }
+};
+
+export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'INR'
+    currency: 'INR',
   }).format(amount);
 };
 
-export const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+export const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString();
 };
