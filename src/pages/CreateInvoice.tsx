@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,19 +146,25 @@ const CreateInvoice = () => {
     }
 
     try {
+      // Import the hybrid save function
+      const { saveInvoiceHybrid } = await import('@/utils/hybridDataManager');
+      
       // Create a map of stock items for the saveInvoice function
       const stockItemsMap = new Map(stockItems.map(item => [item.id, item]));
       
-      console.log('Creating invoice with stock items map:', stockItemsMap);
+      console.log('Creating invoice with hybrid approach...');
       
-      const newInvoice = await saveInvoice({
+      // Check if sync to Hostinger is enabled
+      const shouldSyncToHostinger = localStorage.getItem('sync_invoices') === 'true';
+      
+      const newInvoice = await saveInvoiceHybrid({
         customer_name: customerName,
         customer_number: customerNumber,
         items: selectedItems,
         subtotal,
         discount: parseFloat(discount || "0"),
         total,
-      }, stockItemsMap);
+      }, stockItemsMap, { syncToHostinger: shouldSyncToHostinger });
 
       if (newInvoice) {
         console.log('Created invoice:', newInvoice);
@@ -172,7 +177,9 @@ const CreateInvoice = () => {
         
         toast({
           title: "Success",
-          description: "Invoice created successfully and stock updated",
+          description: shouldSyncToHostinger 
+            ? "Invoice created and synced to both databases" 
+            : "Invoice created successfully and stock updated",
         });
 
         // Reset form
